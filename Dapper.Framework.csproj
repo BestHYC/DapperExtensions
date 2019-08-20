@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>7.2</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Description>用作Dapper扩展,只是为了解析sql,目前支持mysql及sqlserver</Description>
+    <AssemblyVersion>1.0.0.4</AssemblyVersion>
+    <Version>1.0.5.6</Version>
+    <PackageProjectUrl>http://git.onesmart.org/0100851/Dapper.Framework.git</PackageProjectUrl>
+    <FileVersion>1.0.5.6</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="1.60.6" />
+    <PackageReference Include="MySql.Data" Version="8.0.17" />
+  </ItemGroup>
+
+</Project>
