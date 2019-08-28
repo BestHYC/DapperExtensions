@@ -5,10 +5,15 @@
     <LangVersion>7.2</LangVersion>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>用作Dapper扩展,只是为了解析sql,目前支持mysql及sqlserver</Description>
-    <AssemblyVersion>1.0.0.4</AssemblyVersion>
-    <Version>1.0.5.6</Version>
+    <AssemblyVersion>1.0.0.5</AssemblyVersion>
+    <Version>1.0.5.7</Version>
     <PackageProjectUrl>http://git.onesmart.org/0100851/Dapper.Framework.git</PackageProjectUrl>
-    <FileVersion>1.0.5.6</FileVersion>
+    <FileVersion>1.0.5.7</FileVersion>
+    <PackageReleaseNotes>修改执行多次where查询及sql生成的语法糖</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DocumentationFile>E:\MyCode\Dapper.Framework\Dapper.Framework.xml</DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

@@ -176,15 +176,50 @@ namespace Dapper.Framework.SqlExtensions
             _querySqlHelper.AddTable(table);
             return this;
         }
+        /// <summary>
+        /// 通过限定条件生成sql,非特定生成sql,不建议使用
+        /// </summary>
+        /// <param name="expressions"></param>
+        /// <returns></returns>
+        public Query<T> Where(Expression<Func<T, Object>> expressions)
+        {
+            ParameterReduce reduce = new ParameterReduce();
+            expressions.ConvertExpression(reduce);
+            Type t = typeof(T);
+            foreach (var item in reduce.ReduceSql)
+            {
+                ColumnRelevanceMapper left = new ColumnRelevanceMapper();
+                ColumnRelevanceMapper right = new ColumnRelevanceMapper();
+                if(_querySqlHelper.Where.Count != 0)
+                {
+                    left.SqlOperatorEnum = SqlOperatorEnum.And;
+                }
+                left.TableName = t;
+                left.ColumnName = item.ColumnName;
+                right.SqlOperatorEnum = SqlOperatorEnum.Equal;
+                right.ColumnName = item.ColumnName;
+                _querySqlHelper.AddWhere(left);
+                _querySqlHelper.AddWhere(right);
+            }
+            return this;
+        }
         public Query<T> Where(Expression<Func<T, Boolean>> expressions)
         {
             ParameterReduce reduce = new ParameterReduce(_querySqlParam, _querySqlHelper.Where);
+            if (_querySqlHelper.Where.Count != 0)
+            {
+                reduce.AddOperator(SqlOperatorEnum.And);
+            }
             expressions.ConvertExpression(reduce);
             return this;
         }
         public Query<T> Where<T1>(Expression<Func<T, T1, Boolean>> expressions)
         {
             ParameterReduce reduce = new ParameterReduce(_querySqlParam, _querySqlHelper.Where);
+            if (_querySqlHelper.Where.Count != 0)
+            {
+                reduce.AddOperator(SqlOperatorEnum.And);
+            }
             expressions.ConvertExpression(reduce);
             return this;
         }
