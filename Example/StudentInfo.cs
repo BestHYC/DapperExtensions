@@ -22,4 +22,45 @@ namespace Dapper.Framework.Example
         /// </summary>
         public string Stu_ID { get; set; }
     }
+    public class StudentInfoModel
+    {
+        /// <summary>
+        /// 自增ID
+        /// </summary>
+        [PrimaryKey]
+        public int ID { get; set; }
+        /// <summary>
+        /// 会员类型,1-会员,2-潜客
+        /// </summary>
+        public int Stu_Type { get; set; }
+        /// <summary>
+        /// 数据来源系统中ID
+        /// </summary>
+        public string Stu_ID { get; set; }
+    }
+
+    public class CreateStudentInfoModel
+    {
+         /// <summary>
+        /// 会员类型,1-会员,2-潜客
+        /// </summary>
+        public int Stu_Type { get; set; }
+        /// <summary>
+        /// 数据来源系统中ID
+        /// </summary>
+        public string Stu_ID { get; set; }
+    }
+
+    public class UpdateStudentInfoModel
+    {
+        
+        /// <summary>
+        /// 会员类型,1-会员,2-潜客
+        /// </summary>
+        public int Stu_Type { get; set; }
+        /// <summary>
+        /// 数据来源系统中ID
+        /// </summary>
+        public string Stu_ID { get; set; }
+    }
 }

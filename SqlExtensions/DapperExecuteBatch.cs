@@ -53,7 +53,7 @@ namespace Dapper.Framework.SqlExtensions
                         dbTransaction.Commit();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     if (transaction)
                     {
@@ -90,7 +90,7 @@ namespace Dapper.Framework.SqlExtensions
                         dbTransaction.Commit();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     if (transaction)
                     {
@@ -138,7 +138,7 @@ namespace Dapper.Framework.SqlExtensions
                         dbTransaction.Commit();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     if (transaction)
                     {

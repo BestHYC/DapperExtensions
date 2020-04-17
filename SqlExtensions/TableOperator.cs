@@ -245,6 +245,9 @@ namespace Dapper.Framework.SqlExtensions
                     return "";
             }
         }
+        /// <summary>
+        /// 获取别名,简化操作
+        /// </summary>
         private static String strArray = "ABCDEFGHJKMNOPQRSTWXYZabcdefhijkmnoprstwxyz";
         public static String RandromName(this Object obj)
         {
@@ -252,7 +255,6 @@ namespace Dapper.Framework.SqlExtensions
             Random random = new Random(Guid.NewGuid().GetHashCode());
             for (Int32 i = 0; i < 7; i++)
             {
-                
                 Int32 s = random.Next(0, strArray.Length - 1);
                 sb.Append(strArray[s]);
             }

@@ -9,11 +9,14 @@ namespace Dapper.Framework.SqlExtensions
     /// </summary>
     public class TableRelevanceMapper
     {
+        public TableRelevanceMapper()
+        {
+            ColumnOperator = new List<ColumnRelevanceMapper>();
+        }
         /// <summary>
         /// 
         /// </summary>
-        public List<ColumnRelevanceMapper> ColumnOperator { get; private set; } 
-            = new List<ColumnRelevanceMapper>();
+        public List<ColumnRelevanceMapper> ColumnOperator { get; }
         /// <summary>
         /// 若无引用,则为当前主表
         /// </summary>

@@ -17,7 +17,6 @@ namespace Dapper.Framework.Example
             business.Update(info1);
             business.Delete(info1);
             business.Delete(item => item.Stu_ID == "234");
-            
         }
     }
 }
