@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
     /// <summary>
     /// 实体中此字段不做sql处理

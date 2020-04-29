@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
     /// <summary>
-    /// 表属性汇总
+    /// 表属性集合
+    /// 记录表的主键,表名,实体字段与数据库字段的对照关系
     /// </summary>
     public class EntityTableValue
     {
@@ -16,7 +18,7 @@ namespace Dapper.Framework.SqlExtensions
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public String this[String name] => ColoumNamePairs[name];
+        public EntityPropertyValue this[String name] => ColoumNamePairs[name];
         /// <summary>
         /// 缓存表名
         /// </summary>
@@ -29,11 +31,32 @@ namespace Dapper.Framework.SqlExtensions
         /// <summary>
         /// 缓存当前字段对应的sql名,如果没有标注,那么此字段名便为表中字段名
         /// </summary>
-        public Dictionary<String, String> ColoumNamePairs { get; set; }
-        public void AddColum(String name, String value)
+        public Dictionary<String, EntityPropertyValue> ColoumNamePairs { get; set; }
+        public void AddColum(String name, EntityPropertyValue value)
         {
+            if (ColoumNamePairs == null)
+            {
+                ColoumNamePairs = new Dictionary<String, EntityPropertyValue>();
+            }
             ColoumNamePairs.Add(name, value);
         }
+    }
+    public class EntityPropertyValue
+    {
+        /// <summary>
+        /// 字段名
+        /// </summary>
+        public String ColumnName { get; set; }
+        /// <summary>
+        /// 是否自增字段,请注意
+        /// 如果是自增字段,那么在新增数据会排出掉此字段
+        /// </summary>
+        public Boolean IsIncrease { get; set; }
+        /// <summary>
+        /// 此字段对应的是哪个表的外键
+        /// 请注意,此处没添加此功能,需手写sql
+        /// </summary>
+        //public EntityTableValue ReferenceValue { get; set; }
     }
     /// <summary>
     /// 静态缓存所有实体对应的表的字段名
@@ -42,7 +65,8 @@ namespace Dapper.Framework.SqlExtensions
     public static class EntityTableMapper
     {
         private static Object _lock = new Object();
-        public static Dictionary<Type, EntityTableValue> ValuePairs = new Dictionary<Type, EntityTableValue>();
+        public readonly static Dictionary<Type, EntityTableValue> ValuePairs = 
+            new Dictionary<Type, EntityTableValue>();
         /// <summary>
         /// 加载某个程序集中继承IEntity的类型
         /// </summary>
@@ -77,7 +101,6 @@ namespace Dapper.Framework.SqlExtensions
                     Type t = type;
                     EntityTableValue value = new EntityTableValue();
                     Attribute table = t.GetCustomAttribute(typeof(TableMapperAttribute));
-                    Dictionary<String, String> valuePairs = new Dictionary<String, String>();
                     //若没有写对应的特性,那么类名便是表名
                     String TableName = t.Name;
                     if (table != null)
@@ -85,6 +108,8 @@ namespace Dapper.Framework.SqlExtensions
                         TableName = (table as TableMapperAttribute).TableName;
                     }
                     value.Tablename = TableName;
+                    //将字段与数据库中字段名对照起来
+                    Dictionary<String, EntityPropertyValue> valuePairs = new Dictionary<String, EntityPropertyValue>();
                     foreach (PropertyInfo pi in t.GetProperties())
                     {
                         if (pi.GetCustomAttribute(typeof(IgnoreAttribute)) != null) continue;
@@ -94,7 +119,7 @@ namespace Dapper.Framework.SqlExtensions
                         {
                             name = ((PropertyNameAttribute)attribute).ColumnName;
                         }
-                        //主键只允许有一个,如果想多个主键,请实现表达式树写法
+                        //自增主键只允许有一个,如果想多个主键,请实现表达式树写法
                         if (String.IsNullOrEmpty(value.PkColumnName))
                         {
                             Attribute pk = pi.GetCustomAttribute(typeof(PrimaryKeyAttribute));
@@ -103,7 +128,17 @@ namespace Dapper.Framework.SqlExtensions
                                 value.PkColumnName = pi.Name;
                             }
                         }
-                        valuePairs.Add(pi.Name, name);
+                        EntityPropertyValue propertyValue = new EntityPropertyValue()
+                        {
+                            ColumnName = name,
+                            IsIncrease = false
+                        };
+                        Attribute isincrease = pi.GetCustomAttribute(typeof(IncreaseKeyAttribute));
+                        if (isincrease != null)
+                        {
+                            propertyValue.IsIncrease = true;
+                        }
+                        valuePairs.Add(pi.Name, propertyValue);
                     }
                     value.ColoumNamePairs = valuePairs;
                     ValuePairs.Add(t, value);
@@ -115,7 +150,7 @@ namespace Dapper.Framework.SqlExtensions
         /// </summary>
         /// <param name="type">类型</param>
         /// <returns></returns>
-        public static Dictionary<String, String> GetColumns(Type type)
+        public static Dictionary<String, EntityPropertyValue> GetColumns(Type type)
         {
             if (type == null) throw new ArgumentException("类型不能为空");
             if (!ValuePairs.ContainsKey(type))
@@ -128,7 +163,7 @@ namespace Dapper.Framework.SqlExtensions
             return ValuePairs[type].ColoumNamePairs;
         }
         /// <summary>
-        /// 获取表类型对应的主键
+        /// 获取表类型对应的自增主键
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
@@ -167,7 +202,7 @@ namespace Dapper.Framework.SqlExtensions
         /// <param name="type"></param>
         /// <param name="name"></param>
         /// <returns></returns>
-        public static String GetColoumName(Type type, String name)
+        public static EntityPropertyValue GetColoum(Type type, String name)
         {
             if (String.IsNullOrEmpty(name)) throw new ArgumentException("Table对应的属性值不能为空");
             if (!ValuePairs.ContainsKey(type))
@@ -181,6 +216,23 @@ namespace Dapper.Framework.SqlExtensions
             if (ValuePairs.TryGetValue(type, out pairs))
             {
                 return pairs[name];
+            }
+            return null;
+        }
+        public static String GetColoumName(Type type, String name)
+        {
+            if (String.IsNullOrEmpty(name)) throw new ArgumentException("Table对应的属性值不能为空");
+            if (!ValuePairs.ContainsKey(type))
+            {
+                lock (_lock)
+                {
+                    Add(type);
+                }
+            }
+            EntityTableValue pairs = null;
+            if (ValuePairs.TryGetValue(type, out pairs))
+            {
+                return pairs[name].ColumnName;
             }
             return null;
         }

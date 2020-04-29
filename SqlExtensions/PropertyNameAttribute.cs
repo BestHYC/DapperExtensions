@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
     /// <summary>
     /// 字段对应数据库中的别名

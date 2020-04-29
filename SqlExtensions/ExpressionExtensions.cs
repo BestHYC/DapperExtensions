@@ -5,81 +5,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
-    /// <summary>
-    /// 表达式树参数解析
-    /// </summary>
-    public sealed class ParameterReduce
-    {
-        public ParameterReduce():this(new DynamicParameters())
-        {
-
-        }
-        public ParameterReduce(DynamicParameters parameters):this(parameters, new List<ColumnRelevanceMapper>())
-        {
-        }
-        public ParameterReduce(DynamicParameters parameters, List<ColumnRelevanceMapper> columns)
-        {
-            Parameters = parameters;
-            ReduceSql = columns;
-        }
-        /// <summary>
-        /// 参数获取 @key对应的key值保存,有2种,一种是new {key = 1}模式, 一种是{"key", "1"};
-        /// </summary>
-        public DynamicParameters Parameters { get; set; }
-        /// <summary>
-        /// 限制性条件集合
-        /// </summary>
-        public List<ColumnRelevanceMapper> ReduceSql { get; }
-        private SqlOperatorEnum _sqlOperatorEnum = SqlOperatorEnum.None;
-        /// <summary>
-        /// 添加字段映射
-        /// </summary>
-        /// <param name="column"></param>
-        public void Add(ColumnRelevanceMapper column)
-        {
-            AddColumn(column);
-        }
-        /// <summary>
-        /// 添加操作符号
-        /// </summary>
-        /// <param name="SqlOperatorEnum"></param>
-        public void AddOperator(SqlOperatorEnum SqlOperatorEnum)
-        {
-            this._sqlOperatorEnum = SqlOperatorEnum;
-        }
-        /// <summary>
-        /// 添加属性名
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="value"></param>
-        public void Add(String name, Object value)
-        {
-            ColumnRelevanceMapper column = new ColumnRelevanceMapper();
-            if(value != null)
-            {
-                column.ColumnName = $"{name}";
-            }
-            Parameters.Add(name, value);
-            //添加@name的模式
-            AddColumn(column);
-        }
-        /// <summary>
-        /// 每次的行操作都会判断前面的执行方式
-        /// </summary>
-        /// <param name="column"></param>
-        private void AddColumn(ColumnRelevanceMapper column)
-        {
-            if (_sqlOperatorEnum != SqlOperatorEnum.None)
-            {
-                column.SqlOperatorEnum = _sqlOperatorEnum;
-                //初始化sql操作
-                _sqlOperatorEnum = SqlOperatorEnum.None;
-            }
-            ReduceSql.Add(column);
-        }
-    }
     /// <summary>
     /// 表达式树解析
     /// </summary>
@@ -115,7 +42,7 @@ namespace Dapper.Framework.SqlExtensions
                     break;
                 case ExpressionType.LessThanOrEqual:
                     ConvertExpression(((BinaryExpression)expression).Left, in reduce);
-                    reduce.AddOperator(SqlOperatorEnum.LessThan);
+                    reduce.AddOperator(SqlOperatorEnum.LessThanOrEqual);
                     ConvertExpression(((BinaryExpression)expression).Right, in reduce);
                     break;
                 case ExpressionType.LessThan:
@@ -156,9 +83,9 @@ namespace Dapper.Framework.SqlExtensions
         }
         private static void NewExpression(NewExpression expression, in ParameterReduce reduce)
         {
-            for (Int32 i =0; i < expression.Arguments.Count; i++)
+            foreach (var item in expression.Arguments)
             {
-                MemberExpression memberExp = (MemberExpression)expression.Arguments[i];
+                MemberExpression memberExp = (MemberExpression)item;
                 var member = memberExp.Member as MemberInfo;
                 Type type = member.ReflectedType;
                 ColumnRelevanceMapper column = new ColumnRelevanceMapper();
@@ -172,7 +99,8 @@ namespace Dapper.Framework.SqlExtensions
         {
             var member = expression.Member as MemberInfo;
             Type type = member.ReflectedType;
-
+            //如 int32 i =0;
+            //a.id=i 那么会解析出 i result = 1
             if (
                 expression.Expression.NodeType == ExpressionType.MemberAccess ||
                 expression.Expression.NodeType == ExpressionType.Constant

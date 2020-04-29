@@ -8,7 +8,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
 
     public interface IExecuteBatch<T> where T : IEntity, new()

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
     /// <summary>
     /// 类型对应的数据库中的表名

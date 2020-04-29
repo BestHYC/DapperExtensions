@@ -5,7 +5,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
     public interface ISqlBuilder<T> where T: IEntity,new()
     {

@@ -1,24 +1,43 @@
 ﻿using Dapper;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
     /// <summary>
-    /// 简单粗暴,不用反射,表达式树
+    /// 简单粗暴,不用反射及表达式树
+    /// 并且记录当前解析的字段及顺序,在反解析时候直接转换即可
     /// </summary>
     public sealed class QuerySQLHelper
     {
-        public ColumnRelevanceMapper Top { get; private set; }
+        public QuerySQLHelper()
+        {
+            Query = new List<ColumnRelevanceMapper>();
+            Top = new ColumnRelevanceMapper();
+            Table = new List<TableRelevanceMapper>();
+            Where = new List<ColumnRelevanceMapper>();
+            Orderby = new List<String>();
+        }
+        public ColumnRelevanceMapper Top { get;}
         /// <summary>
-        /// 保存查询字段,目前不可做重复查询,但是后期需支持别名
+        /// 保存查询字段,目前不可做重复查询比如 
+        /// 后期支持查询的时候 通过别名查询字段
+        /// 自连接 from a as a1, a as a2
+        /// 目前是通过表名 a.id 而不是a1.id来区分,所以不适合重复查询字段
         /// </summary>
-        public List<ColumnRelevanceMapper> Query { get; } = new List<ColumnRelevanceMapper>();
-        public List<TableRelevanceMapper> Table { get; } = new List<TableRelevanceMapper>();
-        public List<ColumnRelevanceMapper> Where { get; } = new List<ColumnRelevanceMapper>();
-        public List<String> Orderby { get; } = new List<String>();
+        public List<ColumnRelevanceMapper> Query { get; }
+        /// <summary>
+        /// 
+        /// </summary>
+        public List<TableRelevanceMapper> Table { get; }
+        /// <summary>
+        /// 
+        /// </summary>
+        public List<ColumnRelevanceMapper> Where { get; }
+        public List<String> Orderby { get; }
         private Object _lock = new object();
         /// <summary>
         /// 添加所有的查询字段,保存表名及对应的字段名
@@ -26,26 +45,10 @@ namespace Dapper.Framework.SqlExtensions
         /// <param name="type">类型</param>
         /// <param name="columnName">字段名</param>
         /// <returns></returns>
-        public QuerySQLHelper AddQuery(Type type, String columnName)
-        {
-            lock (_lock)
-            {
-                ColumnRelevanceMapper column = new ColumnRelevanceMapper
-                {
-                    ColumnName = columnName,
-                    TableName = type
-                };
-                Query.Add(column);
-            }
-            return this;
-        }
         public QuerySQLHelper AddTop(String name)
         {
-            Top = new ColumnRelevanceMapper()
-            {
-                ColumnName = name,
-                SqlOperatorEnum = SqlOperatorEnum.Top
-            };
+            Top.ColumnName = name;
+            Top.SqlOperatorEnum = SqlOperatorEnum.Top;
             return this;
         }
         public QuerySQLHelper AddQuery(ColumnRelevanceMapper column)
@@ -56,12 +59,9 @@ namespace Dapper.Framework.SqlExtensions
             }
             return this;
         }
-        public QuerySQLHelper AddQueryList(Queue<ColumnRelevanceMapper> columns)
+        public QuerySQLHelper AddQueryList(List<ColumnRelevanceMapper> columns)
         {
-            foreach(var item in columns)
-            {
-                Query.Add(item);
-            }
+            Query.AddRange(columns);
             return this;
         }
         /// <summary>
@@ -85,6 +85,18 @@ namespace Dapper.Framework.SqlExtensions
             }
             return this;
         }
+        public QuerySQLHelper AddWhere(List<ColumnRelevanceMapper> columns)
+        {
+            if (columns != null)
+            {
+                Where.AddRange(columns);
+            }
+            return this;
+        }
+        public Int32 WhereCount()
+        {
+            return Where.Count();
+        }
         public QuerySQLHelper AddOrder(String orderby)
         {
             if (!String.IsNullOrEmpty(orderby))
@@ -100,12 +112,11 @@ namespace Dapper.Framework.SqlExtensions
     /// <typeparam name="T"></typeparam>
     public abstract class Query<T> : IExecute where T :IEntity
     {
-        protected QuerySQLHelper _querySqlHelper;
-        protected DynamicParameters _querySqlParam = new DynamicParameters();
+        protected QueryParameterReduce Reduce;
         /// <summary>
         /// 当前类型的对应的sql表字段
         /// </summary>
-        private Dictionary<String, String> ValuePairs;
+        private Dictionary<String, EntityPropertyValue> ValuePairs;
         private Object _lock = new object();
         static Query()
         {
@@ -115,8 +126,8 @@ namespace Dapper.Framework.SqlExtensions
         {
             Type t = typeof(T);
             ValuePairs = EntityTableMapper.GetColumns(t);
-            _querySqlHelper = new QuerySQLHelper();
-            _querySqlHelper.AddTable(new TableRelevanceMapper() { TableName = t });
+            Reduce = new QueryParameterReduce();
+            Reduce.AddTable(t);
         }
         /// <summary>
         /// 如果ColumnRelevanceMapper中没有table表名,就说明他是单独的一个执行sql
@@ -125,7 +136,7 @@ namespace Dapper.Framework.SqlExtensions
         /// <returns></returns>
         public Query<T> Count(Expression<Func<T, Boolean>> where)
         {
-            _querySqlHelper.AddQuery(new ColumnRelevanceMapper() { ColumnName="count(*)" });
+            Reduce.AddQuery(new ColumnRelevanceMapper() { ColumnName=" count(1) " });
             Where(where);
             return this;
         }
@@ -134,15 +145,15 @@ namespace Dapper.Framework.SqlExtensions
             Type t = typeof(T);
             foreach(var item in ValuePairs)
             {
-                _querySqlHelper.AddQuery(t, item.Key);
+                Reduce.AddQuery(t, item.Key);
             }
             return this;
         }
         public Query<T> Select(Expression<Func<T, Object>> select)
         {
-            if (select.Body.NodeType != ExpressionType.New) throw new Exception("选择性查询请传new{}的表达式");
-            ParameterReduce reduce = new ParameterReduce(_querySqlParam, _querySqlHelper.Query);
-            select.ConvertExpression(reduce);
+            if (select.Body.NodeType != ExpressionType.New) 
+                throw new Exception("选择性查询请传new{}的表达式");
+            Reduce.AddQuery(select);
             return this;
         }
         /// <summary>
@@ -156,78 +167,29 @@ namespace Dapper.Framework.SqlExtensions
         {
             SetQueryOtherTable(query);
             Type t = typeof(T1);
-            TableRelevanceMapper table = new TableRelevanceMapper();
-            table.TableName = t;
-            table.TableOperatorEnum = TableOperatorEnum.InnerJoin;
-            ParameterReduce reduce = new ParameterReduce(_querySqlParam, table.ColumnOperator);
-            foreign.ConvertExpression(reduce);
-            _querySqlHelper.AddTable(table);
+            Reduce.AddTable(t, TableOperatorEnum.InnerJoin, foreign);
             return this;
         }
         public Query<T> Left<T1>(Expression<Func<T1, Object>> foreign, Expression<Func<T1, Object>> query = null)
         {
             SetQueryOtherTable(query);
             Type t = typeof(T1);
-            TableRelevanceMapper table = new TableRelevanceMapper();
-            table.TableName = t;
-            table.TableOperatorEnum = TableOperatorEnum.LeftJoin;
-            ParameterReduce reduce = new ParameterReduce(_querySqlParam, table.ColumnOperator);
-            foreign.ConvertExpression(reduce);
-            _querySqlHelper.AddTable(table);
-            return this;
-        }
-        /// <summary>
-        /// 通过限定条件生成sql,非特定生成sql,不建议使用
-        /// </summary>
-        /// <param name="expressions"></param>
-        /// <returns></returns>
-        public Query<T> Where(Expression<Func<T, Object>> expressions)
-        {
-            ParameterReduce reduce = new ParameterReduce();
-            expressions.ConvertExpression(reduce);
-            Type t = typeof(T);
-            foreach (var item in reduce.ReduceSql)
-            {
-                ColumnRelevanceMapper left = new ColumnRelevanceMapper();
-                ColumnRelevanceMapper right = new ColumnRelevanceMapper();
-                if(_querySqlHelper.Where.Count != 0)
-                {
-                    left.SqlOperatorEnum = SqlOperatorEnum.And;
-                }
-                left.TableName = t;
-                left.ColumnName = item.ColumnName;
-                right.SqlOperatorEnum = SqlOperatorEnum.Equal;
-                right.ColumnName = item.ColumnName;
-                _querySqlHelper.AddWhere(left);
-                _querySqlHelper.AddWhere(right);
-            }
+            Reduce.AddTable(t, TableOperatorEnum.LeftJoin, foreign);
             return this;
         }
         public Query<T> Where(Expression<Func<T, Boolean>> expressions)
         {
-            ParameterReduce reduce = new ParameterReduce(_querySqlParam, _querySqlHelper.Where);
-            if (_querySqlHelper.Where.Count != 0)
-            {
-                reduce.AddOperator(SqlOperatorEnum.And);
-            }
-            expressions.ConvertExpression(reduce);
+            Reduce.AddWhere(expressions);
             return this;
         }
         public Query<T> Where<T1>(Expression<Func<T, T1, Boolean>> expressions)
         {
-            ParameterReduce reduce = new ParameterReduce(_querySqlParam, _querySqlHelper.Where);
-            if (_querySqlHelper.Where.Count != 0)
-            {
-                reduce.AddOperator(SqlOperatorEnum.And);
-            }
-            expressions.ConvertExpression(reduce);
+            Reduce.AddWhere(expressions);
             return this;
         }
         public Query<T> Top(int num)
         {
-            String name = num.RandromName();
-            _querySqlHelper.AddTop(name);
-            _querySqlParam.Add(name, num);
+            Reduce.AddTop(num);
             return this;
         }
 
@@ -241,14 +203,12 @@ namespace Dapper.Framework.SqlExtensions
                 {
                     foreach(var item in valuePairs)
                     {
-                        _querySqlHelper.AddQuery(tablename, item.Key);
+                        Reduce.AddQuery(tablename, item.Key);
                     }
                 }
                 else
                 {
-                    NewExpression newExpression = (NewExpression)query.Body;
-                    ParameterReduce reduce = new ParameterReduce(_querySqlParam, _querySqlHelper.Query);
-                    query.ConvertExpression(reduce);
+                    Reduce.AddQuery(query);
                 }
             }
         }

@@ -1,22 +1,43 @@
 ﻿using Dapper;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 
-namespace Dapper.Framework.SqlExtensions
+namespace Dapper.Framework
 {
+    /// <summary>
+    /// 只针对解析Sql帮助字段包装
+    /// 因为增删改操作,只对单一数据表进行修改
+    /// 如 Insert A => insert into A (id, name) values(1, 1);
+    /// 所以只有一个表,但是有多个Column
+    /// 注意,如果是自增主键,那么在新增会直接排斥掉
+    /// </summary>
     public class RenewalSqlHelper
     {
-        public List<ColumnRelevanceMapper> Header { get; } = new List<ColumnRelevanceMapper>();
-        public TableRelevanceMapper Table { get; private set; } = new TableRelevanceMapper();
-        public List<ColumnRelevanceMapper> Where { get; } = new List<ColumnRelevanceMapper>();
+        public List<ColumnRelevanceMapper> Header { get; } 
+        public TableRelevanceMapper Table { get; }
+        public List<ColumnRelevanceMapper> Where { get; }
+        public RenewalSqlHelper()
+        {
+            Header = new List<ColumnRelevanceMapper>();
+            Table = new TableRelevanceMapper();
+            Where = new List<ColumnRelevanceMapper>();
+        }
         public void AddHeader(String header, Type t = null)
         {
             if (!String.IsNullOrEmpty(header))
             {
-                Header.Add(
+                AddHeader(
                     new ColumnRelevanceMapper() { ColumnName = header, TableName = t });
+            }
+        }
+        public void AddHeader(ColumnRelevanceMapper column)
+        {
+            if(column != null)
+            {
+                Header.Add(column);
             }
         }
         public void AddWhere(String where)
@@ -27,9 +48,13 @@ namespace Dapper.Framework.SqlExtensions
                     new ColumnRelevanceMapper() { ColumnName = where, TableName = Table.TableName });
             }
         }
+        public Int32 WhereCount()
+        {
+            return Where.Count();
+        }
         public void AddWhere(ColumnRelevanceMapper column)
         {
-            if(column != null)
+            if (column != null)
             {
                 Where.Add(column);
             }
@@ -37,12 +62,11 @@ namespace Dapper.Framework.SqlExtensions
     }
     public abstract class Renewal<T> : IExecute where T:IEntity, new()
     {
-        protected RenewalSqlHelper _sqlHelper = new RenewalSqlHelper();
-        protected DynamicParameters _dynamic = new DynamicParameters();
+        protected BatchParameterReduce Reduce = new BatchParameterReduce();
         /// <summary>
         /// 当前类型的对应的sql表字段
         /// </summary>
-        protected Dictionary<String, String> ValuePairs = EntityTableMapper.GetColumns(typeof(T));
+        protected Dictionary<String, EntityPropertyValue> ValuePairs = EntityTableMapper.GetColumns(typeof(T));
         private static Object _lock = new object();
         static Renewal()
         {
@@ -52,36 +76,32 @@ namespace Dapper.Framework.SqlExtensions
         public Renewal<T> Insert(T model)
         {
             Type t = typeof(T);
-            _sqlHelper.Table.TableName = t;
-            _sqlHelper.Table.TableOperatorEnum = TableOperatorEnum.Insert;
-            foreach(var item in ValuePairs)
+            Reduce.AddTable(t, TableOperatorEnum.Insert);
+            foreach (var item in ValuePairs)
             {
-                _sqlHelper.AddHeader(item.Key, t);
+                Reduce.AddHeader(item.Key, t);
             }
-            _dynamic.AddDynamicParams(model);
+            Reduce.AddDynamicParams(model);
             return this;
         }
         public Renewal<T> Insert(T model, Expression<Func<T, Object>> select)
         {
             if (select.Body.NodeType != ExpressionType.New) throw new Exception("选择性查询请传new{}的表达式");
             Type t = typeof(T);
-            _sqlHelper.Table.TableName = t;
-            _sqlHelper.Table.TableOperatorEnum = TableOperatorEnum.Insert;
-            ParameterReduce reduce = new ParameterReduce(_dynamic, _sqlHelper.Header);
-            select.ConvertExpression(reduce);
-            _dynamic.AddDynamicParams(model);
+            Reduce.AddTable(t, TableOperatorEnum.Insert)
+            .AddHeader(select)
+            .AddDynamicParams(model);
             return this;
         }
         public Renewal<T> Update(T model)
         {
             Type t = typeof(T);
-            _sqlHelper.Table.TableName = t;
-            _sqlHelper.Table.TableOperatorEnum = TableOperatorEnum.Update;
+            Reduce.AddTable(t, TableOperatorEnum.Update);
             foreach (var item in ValuePairs)
             {
-                _sqlHelper.AddHeader(item.Key, t);
+                Reduce.AddHeader(item.Key, t);
             }
-            _dynamic.AddDynamicParams(model);
+            Reduce.AddDynamicParams(model);
             return this;
         }
         /// <summary>
@@ -94,11 +114,9 @@ namespace Dapper.Framework.SqlExtensions
         {
             if (select.Body.NodeType != ExpressionType.New) throw new Exception("选择性查询请传new{}的表达式");
             Type t = typeof(T);
-            _sqlHelper.Table.TableName = t;
-            _sqlHelper.Table.TableOperatorEnum = TableOperatorEnum.Update;
-            ParameterReduce reduce = new ParameterReduce(_dynamic, _sqlHelper.Header);
-            select.ConvertExpression(reduce);
-            _dynamic.AddDynamicParams(model);
+            Reduce.AddTable(t, TableOperatorEnum.Update)
+            .AddHeader(select)
+            .AddDynamicParams(model);
             return this;
         }
         /// <summary>
@@ -108,22 +126,20 @@ namespace Dapper.Framework.SqlExtensions
         /// <returns></returns>
         public Renewal<T> Set(String select)
         {
-            _sqlHelper.AddHeader(select);
+            Reduce.AddHeader(select);
             return this;
         }
         public Renewal<T> Delete(T model)
         {
             Type t = typeof(T);
-            _sqlHelper.Table.TableName = t;
-            _sqlHelper.Table.TableOperatorEnum = TableOperatorEnum.Delete;
-            _dynamic.AddDynamicParams(model);
+            Reduce.AddTable(t, TableOperatorEnum.Delete)
+            .AddDynamicParams(model);
             return this;
         }
         public Renewal<T> Delete(Expression<Func<T, Boolean>> where)
         {
             Type t = typeof(T);
-            _sqlHelper.Table.TableName = t;
-            _sqlHelper.Table.TableOperatorEnum = TableOperatorEnum.Delete;
+            Reduce.AddTable(t, TableOperatorEnum.Delete);
             Where(where);
             return this;
         }
@@ -134,39 +150,27 @@ namespace Dapper.Framework.SqlExtensions
         /// <returns></returns>
         public Renewal<T> Where(Expression<Func<T, Boolean>> expressions)
         {
-            ParameterReduce reduce = new ParameterReduce(_dynamic, _sqlHelper.Where);
-            expressions.ConvertExpression(reduce);
+            Reduce.AddWhere(expressions);
             return this;
         }
         public Renewal<T> Where<K>(Expression<Func<T, K, Boolean>> expressions)
         {
-            ParameterReduce reduce = new ParameterReduce(_dynamic, _sqlHelper.Where);
-            expressions.ConvertExpression(reduce);
+            Reduce.AddWhere(expressions);
             return this;
         }
         public Renewal<T> In(Expression<Func<T, Object>> item, IEnumerable<Object> objs)
         {
-            ParameterReduce reduce = new ParameterReduce(_dynamic, _sqlHelper.Where);
-            if (reduce.ReduceSql.Count != 0)
-            {
-                reduce.AddOperator(SqlOperatorEnum.And);
-            }
-            item.ConvertExpression(reduce);
             String name = objs.RandromName();
-            _sqlHelper.AddWhere(new ColumnRelevanceMapper() { ColumnName = $"@{name}", SqlOperatorEnum = SqlOperatorEnum.In });
-            reduce.Parameters.Add(name, objs);
+            Reduce.AddWhere(item)
+            .AddWhere(new ColumnRelevanceMapper() { ColumnName = $"@{name}", SqlOperatorEnum = SqlOperatorEnum.In })
+            .AddParameters(name, objs);
             return this;
         }
         public Renewal<T> In(Expression<Func<T, Object>> item, IBatch batch)
         {
-            ParameterReduce reduce = new ParameterReduce(_dynamic, _sqlHelper.Where);
-            if(reduce.ReduceSql.Count != 0)
-            {
-                reduce.AddOperator(SqlOperatorEnum.And);
-            }
-            item.ConvertExpression(reduce);
-            _sqlHelper.AddWhere(new ColumnRelevanceMapper() { ColumnName = $"({batch.SqlBuilder})", SqlOperatorEnum = SqlOperatorEnum.In });
-            reduce.Parameters.AddDynamicParams(batch.DynamicParameters);
+            Reduce.AddWhere(item)
+            .AddWhere(new ColumnRelevanceMapper() { ColumnName = $"({batch.SqlBuilder})", SqlOperatorEnum = SqlOperatorEnum.In })
+            .AddDynamicParams(batch.DynamicParameters);
             return this;
         }
         public abstract IBatch End();
