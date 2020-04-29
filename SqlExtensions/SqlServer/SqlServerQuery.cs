@@ -24,7 +24,7 @@ namespace Dapper.Framework.SqlExtensions
             sb.Append($"from {table} ");
             if (!String.IsNullOrEmpty(where))
             {
-                sb.Append($"where {where} ");
+                sb.Append($" where {where} ");
             }
             batch.SqlBuilder = sb.ToString();
             batch.DynamicParameters = Reduce.Parameters;
@@ -46,10 +46,16 @@ namespace Dapper.Framework.SqlExtensions
                 }
                 String tablename = EntityTableMapper.GetTableName(column.TableName);
                 String columnname = EntityTableMapper.GetColoumName(column.TableName, column.ColumnName);
-                sb.Append($"[{tablename}].[{columnname}]");
+                sb.Append($" [{tablename}].[{columnname}] ");
             }
             return sb.ToString();
         }
+        /// <summary>
+        /// 注意,此处的ConditionConvert的写法,因为在表关联时不允许出现 on a.id = null的情况
+        /// 全部通过where方式进行过滤
+        /// </summary>
+        /// <param name="tables"></param>
+        /// <returns></returns>
         private String ConvertToTable(List<TableRelevanceMapper> tables)
         {
             StringBuilder sb = new StringBuilder();
@@ -58,7 +64,7 @@ namespace Dapper.Framework.SqlExtensions
                 String tableName = EntityTableMapper.GetTableName(table.TableName);
                 if (table.TableOperatorEnum == TableOperatorEnum.None)
                 {
-                    sb.Insert(0, tableName);
+                    sb.Insert(0, $" {tableName} ");
                 }
                 else
                 {
@@ -94,7 +100,7 @@ namespace Dapper.Framework.SqlExtensions
                     Type t = column.TableName;
                     String tableName = EntityTableMapper.GetTableName(t);
                     String columnName = EntityTableMapper.GetColoumName(t, column.ColumnName);
-                    str = $"[{tableName}].[{columnName}]";
+                    str = $" [{tableName}].[{columnName}] ";
                 }
                 return $"{str} {column.SqlOperatorEnum.GetOperator()}";
             }
@@ -105,7 +111,7 @@ namespace Dapper.Framework.SqlExtensions
             //如果是 item.id = 1 中的  = 1,那么只 保存 = @ColumnName
             if (column.TableName == null)
             {
-                sb.Append($"@{column.ColumnName}");
+                sb.Append($" @{column.ColumnName} ");
             }
             else
             {
@@ -116,6 +122,11 @@ namespace Dapper.Framework.SqlExtensions
             }
             return sb.ToString();
         }
+        /// <summary>
+        /// 注意此处的is null 的写法,如果null != a.id,那么会返回 "" a.id is null
+        /// </summary>
+        /// <param name="where"></param>
+        /// <returns></returns>
         private String ConvertToWhere(List<ColumnRelevanceMapper> where)
         {
             StringBuilder sb = new StringBuilder();

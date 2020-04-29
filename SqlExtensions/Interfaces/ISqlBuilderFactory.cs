@@ -18,24 +18,16 @@ namespace Dapper.Framework
     {
         ISqlBuilder<T> CreateBuilder();
     }
-    public enum SqlVarietyEnum
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        SqlServer =0, 
-        Mysql = 1,
-    }
     public class SqlSererBuilder<T> : ISqlBuilder<T> where T:IEntity,new()
     {
-        private String Connection;
-        public SqlSererBuilder(String conn)
+        private IConnectionCreate Connection;
+        public SqlSererBuilder(IConnectionCreate conn)
         {
             Connection = conn;
         }
         public IExecuteBatch<T> CreateDapper()
         {
-            return new DapperExecuteBatch<T>(new SqlConnectionCreate(Connection));
+            return new DapperExecuteBatch<T>(Connection);
         }
 
         public Query<T> CreateQueryService()
@@ -51,43 +43,19 @@ namespace Dapper.Framework
 
     public interface IConnectionCreate
     {
-        IDbConnection Create();
-    }
-    public class SqlConnectionCreate : IConnectionCreate
-    {
-        private String _connection;
-        public SqlConnectionCreate(String conn)
-        {
-            _connection = conn;
-        }
-        public IDbConnection Create()
-        {
-            return new SqlConnection(_connection);
-        }
-    }
-    public class MysqlConnectionCreate : IConnectionCreate
-    {
-        private String _connection;
-        public MysqlConnectionCreate(String conn)
-        {
-            _connection = conn;
-        }
-        public IDbConnection Create()
-        {
-            return new MySqlConnection(_connection);
-        }
+        IDbConnection CreateConnection();
     }
 
     public class MysqlBuilder<T> : ISqlBuilder<T> where T : IEntity, new()
     {
-        private String Connection;
-        public MysqlBuilder(String conn)
+        private IConnectionCreate Connection;
+        public MysqlBuilder(IConnectionCreate conn)
         {
             Connection = conn;
         }
         public IExecuteBatch<T> CreateDapper()
         {
-            return new DapperExecuteBatch<T>(new MysqlConnectionCreate(Connection));
+            return new DapperExecuteBatch<T>(Connection);
         }
 
         public Query<T> CreateQueryService()
@@ -102,17 +70,23 @@ namespace Dapper.Framework
     }
     public class SqlBuilderFactory<T> : ISqlBuilderFactory<T> where T : IEntity, new()
     {
-        private SqlVarietyEnum SqlVarietyEnum;
-        private String Connection;
+        private IConnectionCreate m_connection;
+        private static String m_type;
         /// <summary>
         /// 
         /// </summary>
         /// <param name="sqlEnum">mysql种类</param>
         /// <param name="connString">字符串连接</param>
-        public SqlBuilderFactory(SqlVarietyEnum sqlEnum, String connString)
+        public SqlBuilderFactory(IConnectionCreate connection)
         {
-            SqlVarietyEnum = sqlEnum;
-            Connection = connString;
+            m_connection = connection;
+            if(m_type == null)
+            {
+                using (var i = connection.CreateConnection())
+                {
+                    m_type = i.GetType().Name;
+                }
+            }
         }
         /// <summary>
         /// 创建SqlBuilder
@@ -120,13 +94,13 @@ namespace Dapper.Framework
         /// <returns></returns>
         public ISqlBuilder<T> CreateBuilder()
         {
-            switch (SqlVarietyEnum)
+            switch (m_type)
             {
-                case SqlVarietyEnum.Mysql:
-                    return new MysqlBuilder<T>(Connection);
-                case SqlVarietyEnum.SqlServer:
-                    return new SqlSererBuilder<T>(Connection);
-                default: return new SqlSererBuilder<T>(Connection);
+                case "SqlConnection":
+                    return new SqlSererBuilder<T>(m_connection);
+                case "MySqlConnection":
+                    return new MysqlBuilder<T>(m_connection);
+                default: return new SqlSererBuilder<T>(m_connection);
             }
         }
     }

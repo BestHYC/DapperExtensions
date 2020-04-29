@@ -37,7 +37,7 @@ namespace Dapper.Framework
         public Int32 Execute(String sql, DynamicParameters parameters, Boolean transaction=false)
         {
             Int32 result = 0;
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IDbTransaction dbTransaction = null;
                 if (transaction)
@@ -74,7 +74,7 @@ namespace Dapper.Framework
         public Int32 Execute(IBatch batch, Boolean transaction = false)
         {
             Int32 result = 0;
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IDbTransaction dbTransaction = null;
                 if (transaction)
@@ -122,7 +122,7 @@ namespace Dapper.Framework
         public async Task<Int32> ExecuteAsync(IBatch batch, Boolean transaction = false)
         {
             Int32 result = 0;
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IDbTransaction dbTransaction = null;
                 if (transaction)
@@ -158,7 +158,7 @@ namespace Dapper.Framework
         }
         public T Query(IBatch batch)
         {
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IEnumerable<T> list = Connection.Query<T>(batch.SqlBuilder, batch.DynamicParameters, commandTimeout: 3600);
                 if(list != null)
@@ -170,7 +170,7 @@ namespace Dapper.Framework
         }
         public K Query<K>(IBatch batch)
         {
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IEnumerable<K> list = Connection.Query<K>(batch.SqlBuilder, batch.DynamicParameters, commandTimeout: 3600);
                 if (list != null)
@@ -182,7 +182,7 @@ namespace Dapper.Framework
         }
         public K Query<K>(String sql, DynamicParameters parameters)
         {
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IEnumerable<K> list = Connection.Query<K>(sql, parameters, commandTimeout: 3600);
                 if (list != null)
@@ -194,7 +194,7 @@ namespace Dapper.Framework
         }
         public T Query(String sql, DynamicParameters parameters)
         {
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 IEnumerable<T> list = Connection.Query<T>(sql, parameters, commandTimeout: 3600);
                 if (list != null)
@@ -206,7 +206,7 @@ namespace Dapper.Framework
         }
         public IEnumerable<T> QueryList(IBatch batch)
         {
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 return Connection.Query<T>(batch.SqlBuilder, batch.DynamicParameters, commandTimeout: 3600);
             }
@@ -214,7 +214,7 @@ namespace Dapper.Framework
         public IEnumerable<T> ExecuteReader(IBatch batch)
         {
             List<T> entitybuffer = new List<T>(1024);
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 var reader = Connection.ExecuteReader(batch.SqlBuilder, batch.DynamicParameters, commandTimeout: 3600);
                 var entityParser = reader.GetRowParser<T>();
@@ -230,7 +230,7 @@ namespace Dapper.Framework
         public IEnumerable<Tuple<T, K>> ExecuteReader<K>(IBatch batch, List<ColumnRelevanceMapper> mapper) where K : IEntity, new()
         {
             List<Tuple<T, K>> entitybuffer = new List<Tuple<T, K>>(128);
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 var reader = Connection.ExecuteReader(batch.SqlBuilder, batch.DynamicParameters, commandTimeout: 3600);
                 while (reader.Read())
@@ -265,7 +265,7 @@ namespace Dapper.Framework
         public IEnumerable<Tuple<T, K, P>> ExecuteReader<K, P>(IBatch batch, List<ColumnRelevanceMapper> mapper) where K : IEntity, new() where P : IEntity, new()
         {
             List<Tuple<T, K, P>> entitybuffer = new List<Tuple<T, K, P>>(128);
-            using (var Connection = Create.Create())
+            using (var Connection = Create.CreateConnection())
             {
                 var reader = Connection.ExecuteReader(batch.SqlBuilder, batch.DynamicParameters, commandTimeout: 3600);
                 while (reader.Read())

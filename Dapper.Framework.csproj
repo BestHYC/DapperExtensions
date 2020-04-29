@@ -18,15 +18,12 @@
 
   <ItemGroup>
     <None Remove=".gitignore" />
+    <None Remove="README.md" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="1.60.6" />
     <PackageReference Include="MySql.Data" Version="8.0.19" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="SqlExtensions\ParameterReduce\" />
   </ItemGroup>
 
 </Project>
