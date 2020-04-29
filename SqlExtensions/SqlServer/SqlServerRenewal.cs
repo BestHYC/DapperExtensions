@@ -9,12 +9,14 @@ namespace Dapper.Framework.SqlExtensions
         public override IBatch End()
         {
             IBatch batch = new SqlServerBatch();
-            Tuple<List<String>, List<String>> tuple = ConvertHeader(_sqlHelper.Header);
+            Tuple<List<String>, List<String>> tuple = ConvertHeader(Reduce.GetHeader());
             Type t = typeof(T);
             StringBuilder sb = new StringBuilder();
-            sb.Append(_sqlHelper.Table.TableOperatorEnum.GetOperator());
+            TableRelevanceMapper table = Reduce.GetTable();
+            List<ColumnRelevanceMapper> whereColumn = Reduce.GetWhere();
+            sb.Append(table.TableOperatorEnum.GetOperator());
             sb.Append($" {EntityTableMapper.GetTableName(t)} ");
-            switch (_sqlHelper.Table.TableOperatorEnum)
+            switch (table.TableOperatorEnum)
             {
                 case TableOperatorEnum.Insert:
                     sb.Append(GetInsertSql(tuple));
@@ -22,13 +24,13 @@ namespace Dapper.Framework.SqlExtensions
                 case TableOperatorEnum.Update:
                     sb.Append(" set ");
                     sb.Append(GetUpdateSql(tuple));
-                    if (_sqlHelper.Where.Count == 0)
+                    if (whereColumn.Count == 0)
                     {
                         SetNoneWhere(t);
                     }
                     break;
                 case TableOperatorEnum.Delete:
-                    if (_sqlHelper.Where.Count == 0)
+                    if (whereColumn.Count == 0)
                     {
                         SetNoneWhere(t);
                     }
@@ -36,13 +38,13 @@ namespace Dapper.Framework.SqlExtensions
                 default:
                     throw new Exception("请先选择操作种类");
             }
-            String where = ConvertToWhere(_sqlHelper.Where);
+            String where = ConvertToWhere(whereColumn);
             if (!String.IsNullOrEmpty(where))
             {
                 sb.Append($" where {where}");
             }
             batch.SqlBuilder = sb.ToString();
-            batch.DynamicParameters = _dynamic;
+            batch.DynamicParameters = Reduce.Parameters;
             return batch;
         }
 
@@ -50,15 +52,15 @@ namespace Dapper.Framework.SqlExtensions
         {
             String pk = EntityTableMapper.GetPkColumn(t);
             if (String.IsNullOrEmpty(pk)) throw new ArgumentException("请使用带主键的或者添加删选条件");
-            String pkValue = ValuePairs[pk];
+            String pkValue = ValuePairs[pk].ColumnName;
             ColumnRelevanceMapper column = new ColumnRelevanceMapper();
             column.ColumnName = pk;
             column.TableName = t;
             ColumnRelevanceMapper value = new ColumnRelevanceMapper();
             value.ColumnName = pk;
             value.SqlOperatorEnum = SqlOperatorEnum.Equal;
-            _sqlHelper.AddWhere(column);
-            _sqlHelper.AddWhere(value);
+            Reduce.AddWhere(column);
+            Reduce.AddWhere(value);
         }
         /// <summary>
         /// 此处去掉主键,即插入操作不能操作id
@@ -128,8 +130,9 @@ namespace Dapper.Framework.SqlExtensions
                 String propName = "";
                 if (column.TableName != null)
                 {
-                    if (!ValuePairs.ContainsKey(column.ColumnName)) throw new ArgumentException("请传正确表字段");
-                    colName = ValuePairs[column.ColumnName];
+                    if (!ValuePairs.ContainsKey(column.ColumnName)) 
+                        throw new ArgumentException("请传正确表字段");
+                    colName = ValuePairs[column.ColumnName].ColumnName;
                     propName = column.ColumnName;
                 }
                 else

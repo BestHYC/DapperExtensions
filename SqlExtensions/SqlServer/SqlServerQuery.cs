@@ -11,14 +11,14 @@ namespace Dapper.Framework.SqlExtensions
         {
             IBatch batch = new SqlServerBatch();
             StringBuilder sb = new StringBuilder();
-            String query = ConvertToQuery(_querySqlHelper.Query);
-            String table = ConvertToTable(_querySqlHelper.Table);
-            String where = ConvertToWhere(_querySqlHelper.Where);
+            String query = ConvertToQuery(Reduce.GetQuery());
+            String table = ConvertToTable(Reduce.GetTable());
+            String where = ConvertToWhere(Reduce.GetWhere());
             sb.Append($"select ");
 
-            if (_querySqlHelper.Top != null)
+            if (Reduce.GetTop() != null)
             {
-                sb.Append($" top (@{_querySqlHelper.Top.ColumnName}) ");
+                sb.Append($" top (@{Reduce.GetTop().ColumnName}) ");
             }
             sb.Append($" {query} ");
             sb.Append($"from {table} ");
@@ -27,7 +27,7 @@ namespace Dapper.Framework.SqlExtensions
                 sb.Append($"where {where} ");
             }
             batch.SqlBuilder = sb.ToString();
-            batch.DynamicParameters = _querySqlParam;
+            batch.DynamicParameters = Reduce.Parameters;
             return batch;
         }
         private String ConvertToQuery(List<ColumnRelevanceMapper> query)

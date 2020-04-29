@@ -32,6 +32,7 @@ namespace Dapper.Framework
         /// 缓存当前字段对应的sql名,如果没有标注,那么此字段名便为表中字段名
         /// </summary>
         public Dictionary<String, EntityPropertyValue> ColoumNamePairs { get; set; }
+        public HashSet<String> IncresementColumn { get; } = new HashSet<String>();
         public void AddColum(String name, EntityPropertyValue value)
         {
             if (ColoumNamePairs == null)
@@ -137,6 +138,7 @@ namespace Dapper.Framework
                         if (isincrease != null)
                         {
                             propertyValue.IsIncrease = true;
+                            value.IncresementColumn.Add(name);
                         }
                         valuePairs.Add(pi.Name, propertyValue);
                     }
@@ -178,6 +180,18 @@ namespace Dapper.Framework
                 }
             }
             return ValuePairs[type].PkColumnName;
+        }
+        public static HashSet<String> Increment(Type type)
+        {
+            if (type == null) throw new ArgumentException("类型不能为空");
+            if (!ValuePairs.ContainsKey(type))
+            {
+                lock (_lock)
+                {
+                    Add(type);
+                }
+            }
+            return ValuePairs[type].IncresementColumn;
         }
         /// <summary>
         /// 获取类型对应的表名

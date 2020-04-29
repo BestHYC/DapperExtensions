@@ -1,4 +1,5 @@
-﻿using MySql.Data.MySqlClient;
+﻿using Dapper.Framework.SqlExtensions;
+using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
 using System.Data;

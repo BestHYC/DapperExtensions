@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Dapper.Framework.SqlExtensions
@@ -68,15 +69,15 @@ namespace Dapper.Framework.SqlExtensions
         /// <returns></returns>
         private String GetInsertSql(Tuple<List<String>, List<String>> tuple)
         {
-            String pk = EntityTableMapper.GetPkColumn(typeof(T));
+            HashSet<String> isincrement = EntityTableMapper.Increment(typeof(T));
             StringBuilder colstr = new StringBuilder();
             StringBuilder valstr = new StringBuilder();
             List<String> cols = tuple.Item1;
             List<String> props = tuple.Item2;
             for (Int32 i = 0; i < cols.Count; i++)
             {
-                //去掉主键
-                if (cols[i] == pk) continue;
+                //去掉自增键
+                if (isincrement.Contains(cols[i])) continue;
                 if (colstr.Length != 0)
                 {
                     colstr.Append(",");
@@ -129,7 +130,8 @@ namespace Dapper.Framework.SqlExtensions
                 String propName = "";
                 if (column.TableName != null)
                 {
-                    if (!ValuePairs.ContainsKey(column.ColumnName)) throw new ArgumentException("请传正确表字段");
+                    if (!ValuePairs.ContainsKey(column.ColumnName)) 
+                        throw new ArgumentException("请传正确表字段");
                     colName = ValuePairs[column.ColumnName].ColumnName;
                     propName = column.ColumnName;
                 }
